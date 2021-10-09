@@ -1,0 +1,4 @@
+name: aws-ts-apigw-lambda
+runtime: nodejs
+description: An example Pulumi AWS project with ApiGateway, Lambda, DynamoDB, and
+  Lambda
