@@ -52,3 +52,5 @@ const baseName = config.get("base-name") || "message";
 
 ## Step 5: Create Some Infrastructure!
 Execute `pulumi up` and follow the command prompt. Be sure to confirm the "Yes" option if you're ready to create infrastructure.
+
+## [Continue to next project](https://github.com/phillipedwards/aws-ts-apigw-lambda/blob/master/exercises/exercise-2/README.md)
