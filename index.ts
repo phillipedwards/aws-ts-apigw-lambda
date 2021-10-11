@@ -3,6 +3,7 @@ import * as aws from "@pulumi/aws";
 import * as awsx from "@pulumi/awsx";
 import { APIGatewayProxyEvent } from "aws-lambda";
 
+// We can provided default config values, if applicable
 const config = new pulumi.Config();
 const baseName = config.get("base-name") || "message";
 
@@ -25,15 +26,17 @@ const snsTopic = new aws.sns.Topic(`${baseName}-topic`, {
 });
 
 // The subscription needs to be confirmed, once created, through email confirmation.
+// The email used here, should receive a "Subscription Confirmation" email from AWS. This needs to be approved before you'll receive any notifications.
 const subscriptionEmail = config.require("subscription-email");
-new aws.sns.TopicSubscription("message-sub", {
+new aws.sns.TopicSubscription(`${baseName}-message-sub`, {
     topic: snsTopic.arn,
     protocol: "email-json",
     endpoint: subscriptionEmail
 });
 
 // Create in-line lambda function that will process the DynamoDB event streams
-const messageHandler = new aws.lambda.CallbackFunction("message-handler", {
+// Magic functions can be replaced by traditional representations of lambda functions, if needed.
+const messageHandler = new aws.lambda.CallbackFunction(`${baseName}-message-handler`, {
     callback: async (event) => {
 
         const snsClient = new aws.sdk.SNS();
@@ -46,13 +49,15 @@ const messageHandler = new aws.lambda.CallbackFunction("message-handler", {
 });
 
 // Attach our lambda function to our DynamoDB table to process the new Items
-dynamoTable.onEvent("message-handler", messageHandler, {
+dynamoTable.onEvent(`${baseName}-message-handler`, messageHandler, {
     startingPosition: "LATEST"
 });
 
 // Creates an API endpoint which exposes a POST endpoint to save messages
 // A Lambda is proxied to save the message to a dynamodb table
-const endpoint = new awsx.apigateway.API("message-api", {
+// AWSX is a great place to see the power of Pulumi. We can easily standup an API Gateway that proxies to lambda function(s).
+// This API ComponentResource is built entirely of out of the box Pulumi resources, so we can easily break this down, if needed.
+const endpoint = new awsx.apigateway.API(`${baseName}-message-api`, {
     routes: [
         {
             path: "/message",
@@ -89,4 +94,5 @@ const endpoint = new awsx.apigateway.API("message-api", {
 });
 
 // Export the message endpoint as an Output to be used by others
+// This will allow us to execute the `npm run test` script to test our infrastructure.
 export const messageEndpoint = pulumi.interpolate`${endpoint.url}message`;
