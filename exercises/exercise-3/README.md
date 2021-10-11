@@ -63,7 +63,15 @@ Execute a `pulumi up` and watch as the final pieces of infrastructure are create
 ## Step 4:
 Test the program.  
 
-To test our program, we'll use the inline script in our `package.json`. From your terminal, execute `npm run test` and you should receive an email showing the keys of the new DynamoDB item!
+To test our program, we'll add a script to our `package.json`. Add the following section to your `package.json`:  
+
+```
+"scripts": {
+        "test-api": "curl -H 'Content-Type: application/json' -d '{ \"key\": \"value\" }' -XPOST $(pulumi stack output messageEndpoint)"
+    },
+```
+
+Edit the JSON portion of the script to pass whatever information you'd like.  
 
 ## Step 5: 
 Be sure to cleanup your resources and execute `pulumi destroy`.
