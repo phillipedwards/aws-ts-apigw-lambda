@@ -3,7 +3,7 @@ In this section we're going to add some code to create a SNS topic, a SNS subscr
 
 ## Step 1:
 You should have existing code which looks like that:
-![image](https://user-images.githubusercontent.com/25461821/136839027-e188104f-9145-4a00-a8cd-cad1b25c8fee.png)
+![image](https://user-images.githubusercontent.com/25461821/136839027-e188104f-9145-4a00-a8cd-cad1b25c8fee.png). 
 
 ## Step 2:
 Next we're going to add some SNS code to create a new Topic, a new TopicSubscription, and finally attach our Topic to be triggered when a new Item is inserted into our DynamoDB table.
@@ -51,5 +51,7 @@ This code uses what is called "Magic Functions". More can be read here: https://
 execute a `pulumi up` command and watch as your new infrastructure is created.
 
 ## Step 4:
-By now, the email you choose for the `subscription-email` configuration item should have received an email from AWS regarding the new SNS Topic Subscription. Please, confirm the subscription from that email.
+By now, the email you choose for the `subscription-email` configuration item should have received an email from AWS regarding the new SNS Topic Subscription. Please, confirm the subscription from that email.  
+
+## [Continue to next exercise](https://github.com/phillipedwards/aws-ts-apigw-lambda/blob/master/exercises/exercise-3/README.md)
 
