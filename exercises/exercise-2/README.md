@@ -52,6 +52,16 @@ This code uses what is called "Magic Functions". More can be read here: https://
 execute a `pulumi up` command and watch as your new infrastructure is created.
 
 ## Step 4:
+In order to receive our email notification, we need to subscribe to our DynamoDB's event stream and notify SNS of the new Item. Add the following to your `index.ts` file:  
+
+```
+// Attach our lambda function to our DynamoDB table to process the new Items
+dynamoTable.onEvent(`${baseName}-message-handler`, messageHandler, {
+    startingPosition: "LATEST"
+});
+```
+
+## Step 5:
 By now, the email you choose for the `subscription-email` configuration item should have received an email from AWS regarding the new SNS Topic Subscription. Please, confirm the subscription from that email.  
 
 ## [Continue to next exercise](https://github.com/phillipedwards/aws-ts-apigw-lambda/blob/master/exercises/exercise-3/README.md)
