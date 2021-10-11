@@ -3,6 +3,7 @@ In this section we're going to add some code to create a SNS topic, a SNS subscr
 
 ## Step 1:
 You should have existing code which looks like:  
+
 ![image](https://user-images.githubusercontent.com/25461821/136839027-e188104f-9145-4a00-a8cd-cad1b25c8fee.png). 
 
 ## Step 2:
