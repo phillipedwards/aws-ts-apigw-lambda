@@ -108,3 +108,7 @@ const endpoint = new awsx.apigateway.API(`${baseName}-message-api`, {
 // Export the message endpoint as an Output to be used by others
 // This will allow us to execute the `npm run test` script to test our infrastructure.
 export const messageEndpoint = pulumi.interpolate`${endpoint.url}message`;
+
+const stackRef = new pulumi.StackReference("org/project-name/stack-name");
+
+stackRef.getOutput("messageEndpoint");
