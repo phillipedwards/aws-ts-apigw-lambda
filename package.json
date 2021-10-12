@@ -1,5 +1,8 @@
 {
     "name": "aws-ts-apigw-lambda",
+    "scripts": {
+        "test-api": "curl -H 'Content-Type: application/json' -d '{ \"key\": \"value\" }' -XPOST $(pulumi stack output messageEndpoint)"
+    },
     "devDependencies": {
         "@types/aws-lambda": "^8.10.83",
         "@types/node": "^10.0.0"

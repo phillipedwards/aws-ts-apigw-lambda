@@ -1,11 +1,20 @@
 import * as pulumi from "@pulumi/pulumi";
 import * as aws from "@pulumi/aws";
 import * as awsx from "@pulumi/awsx";
-import { APIGatewayProxyEvent } from "aws-lambda";
+
+import { LambdaRole } from "./lambda-role";
 
 // We can provided default config values, if applicable
 const config = new pulumi.Config();
 const baseName = config.get("base-name") || "message";
+
+// This will bundle up the 'src' directory into a zip and make it available for use with lambda
+const lambdaArchive = new pulumi.asset.AssetArchive({
+    ".": new pulumi.asset.FileArchive("./src")
+});
+
+// ------------ Step 1 --------- //
+// Build all infra that is required for the dynamo table
 
 // Create DynamoDB table to store message data from the API.
 const dynamoTable = new aws.dynamodb.Table(`${baseName}-webhook-table`, {
@@ -19,6 +28,9 @@ const dynamoTable = new aws.dynamodb.Table(`${baseName}-webhook-table`, {
     readCapacity: 5,
     writeCapacity: 5,
 });
+
+// ------------ Step 2 --------- //
+// Build all infra that is required to attach lambda to dynamo stream for SNS processing
 
 // Create the SNS Topic and Subscription to be used for the DynamoDB event stream
 const snsTopic = new aws.sns.Topic(`${baseName}-topic`, {
@@ -36,21 +48,47 @@ new aws.sns.TopicSubscription(`${baseName}-message-sub`, {
 
 // Create in-line lambda function that will process the DynamoDB event streams
 // Magic functions can be replaced by traditional representations of lambda functions, if needed.
-const messageHandler = new aws.lambda.CallbackFunction(`${baseName}-message-handler`, {
-    callback: async (event) => {
+const snsLambaRole = new LambdaRole(`${baseName}-sns-lambda`, {
+    assumeService: "lambda.amazonaws.com",
+    policyArn: aws.iam.ManagedPolicies.AmazonSNSFullAccess
+});
 
-        const snsClient = new aws.sdk.SNS();
-
-        await snsClient.publish({
-            TopicArn: snsTopic.arn.get(),
-            Message: JSON.stringify(event)
-        }).promise();
+const dynamoStreamLambda = new aws.lambda.Function(`${baseName}-dynamo-stream-lambda`, {
+    runtime: aws.lambda.Runtime.NodeJS12dX,
+    handler: "dynamo-stream-lambda.handler",
+    code: lambdaArchive,
+    role: snsLambaRole.role.arn,
+    environment: {
+        variables: {
+            TOPIC_ARN: snsTopic.arn
+        }
     }
 });
 
 // Attach our lambda function to our DynamoDB table to process the new Items
-dynamoTable.onEvent(`${baseName}-message-handler`, messageHandler, {
+dynamoTable.onEvent(`${baseName}-stream-handler`, dynamoStreamLambda, {
     startingPosition: "LATEST"
+});
+
+// ------------ Step 3 --------- //
+// Build all infra that is required for the API Gateway and Lambda Proxy
+
+// ComponentResource to encapsulate the Role needed for the Lambda function
+const apiRole = new LambdaRole(`${baseName}-api`, {
+    assumeService: "lambda.amazonaws.com",
+    //policyArn: aws.iam.ManagedPolicies.AmazonDynamoDBFullAccess
+});
+
+const apilambda = new aws.lambda.Function(`${baseName}-api-lambda`, {
+    runtime: aws.lambda.Runtime.NodeJS12dX,
+    handler: "api-lambda.handler",
+    code: lambdaArchive,
+    role: apiRole.role.arn,
+    environment: {
+        variables: {
+            TABLE: dynamoTable.name
+        }
+    }
 });
 
 // Creates an API endpoint which exposes a POST endpoint to save messages
@@ -62,33 +100,7 @@ const endpoint = new awsx.apigateway.API(`${baseName}-message-api`, {
         {
             path: "/message",
             method: "POST",
-            eventHandler: async (event: APIGatewayProxyEvent) => {
-
-                const timestamp = Date.now();
-                const client = new aws.sdk.DynamoDB.DocumentClient();
-
-                console.log(JSON.stringify(event));
-
-                // API Gateway will base64 encode the payload
-                const decoded = Buffer.from(event.body || "", "base64").toString("utf-8");
-                const body = JSON.parse(decoded);
-
-                const params = event.queryStringParameters || {}; // params
-
-                // Push the next item into the table and assume success.
-                await client.put({
-                    TableName: dynamoTable.name.get(),
-                    Item: { timestamp: timestamp, parameters: params, body: body, }
-                }).promise();
-
-                console.log("Saved messaged");
-
-                // return the timestamp as ID for a later lookup
-                return {
-                    statusCode: 200,
-                    body: JSON.stringify({"id": timestamp}),
-                }
-            }
+            eventHandler: apilambda
         }
     ]
 });
