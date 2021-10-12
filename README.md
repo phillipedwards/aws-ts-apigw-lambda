@@ -5,7 +5,7 @@ This example shows how Pulumi can easily create an AWS Serverless application th
 ## Topics Included
 - Configuration
 - Outputs
-- Magic Functions
+- Lambda Functions
 - and more!
 
 ## Getting Started
