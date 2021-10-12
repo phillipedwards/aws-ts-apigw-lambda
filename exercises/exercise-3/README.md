@@ -5,6 +5,23 @@ Lastly, this exercise will see us create an API Gateway instance to receive our 
 Building on our existing code, add the following code block to your `index.ts` file:
 
 ```
+// ComponentResource to encapsulate the Role needed for the Lambda function
+const apiRole = new LambdaRole(`${baseName}-api`, {
+    assumeService: "lambda.amazonaws.com",
+});
+
+const apilambda = new aws.lambda.Function(`${baseName}-api-lambda`, {
+    runtime: aws.lambda.Runtime.NodeJS12dX,
+    handler: "api-lambda.handler",
+    code: lambdaArchive,
+    role: apiRole.role.arn,
+    environment: {
+        variables: {
+            TABLE: dynamoTable.name
+        }
+    }
+});
+
 // Creates an API endpoint which exposes a POST endpoint to save messages
 // A Lambda is proxied to save the message to a dynamodb table
 // AWSX is a great place to see the power of Pulumi. We can easily standup an API Gateway that proxies to lambda function(s).
@@ -14,33 +31,7 @@ const endpoint = new awsx.apigateway.API(`${baseName}-message-api`, {
         {
             path: "/message",
             method: "POST",
-            eventHandler: async (event: APIGatewayProxyEvent) => {
-
-                const timestamp = Date.now();
-                const client = new aws.sdk.DynamoDB.DocumentClient();
-
-                console.log(JSON.stringify(event));
-
-                // API Gateway will base64 encode the payload
-                const decoded = Buffer.from(event.body || "", "base64").toString("utf-8");
-                const body = JSON.parse(decoded);
-
-                const params = event.queryStringParameters || {}; // params
-
-                // Push the next item into the table and assume success.
-                await client.put({
-                    TableName: dynamoTable.name.get(),
-                    Item: { timestamp: timestamp, parameters: params, body: body, }
-                }).promise();
-
-                console.log("Saved messaged");
-
-                // return the timestamp as ID for a later lookup
-                return {
-                    statusCode: 200,
-                    body: JSON.stringify({"id": timestamp}),
-                }
-            }
+            eventHandler: apilambda
         }
     ]
 });

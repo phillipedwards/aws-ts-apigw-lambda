@@ -8,10 +8,6 @@ import { LambdaRole } from "./lambda-role";
 const config = new pulumi.Config();
 const baseName = config.get("base-name") || "message";
 
-// This will bundle up the 'src' directory into a zip and make it available for use with lambda
-const lambdaArchive = new pulumi.asset.AssetArchive({
-    ".": new pulumi.asset.FileArchive("./src")
-});
 
 // ------------ Step 1 --------- //
 // Build all infra that is required for the dynamo table
@@ -46,11 +42,16 @@ new aws.sns.TopicSubscription(`${baseName}-message-sub`, {
     endpoint: subscriptionEmail
 });
 
-// Create in-line lambda function that will process the DynamoDB event streams
-// Magic functions can be replaced by traditional representations of lambda functions, if needed.
+// Create lambda function that will process the DynamoDB event streams
+// We'll use a component resource to re-use our Role creation step.
 const snsLambaRole = new LambdaRole(`${baseName}-sns-lambda`, {
     assumeService: "lambda.amazonaws.com",
     policyArn: aws.iam.ManagedPolicies.AmazonSNSFullAccess
+});
+
+// This will bundle up the 'src' directory into a zip and make it available for use with lambda
+const lambdaArchive = new pulumi.asset.AssetArchive({
+    ".": new pulumi.asset.FileArchive("./src")
 });
 
 const dynamoStreamLambda = new aws.lambda.Function(`${baseName}-dynamo-stream-lambda`, {
@@ -76,7 +77,6 @@ dynamoTable.onEvent(`${baseName}-stream-handler`, dynamoStreamLambda, {
 // ComponentResource to encapsulate the Role needed for the Lambda function
 const apiRole = new LambdaRole(`${baseName}-api`, {
     assumeService: "lambda.amazonaws.com",
-    //policyArn: aws.iam.ManagedPolicies.AmazonDynamoDBFullAccess
 });
 
 const apilambda = new aws.lambda.Function(`${baseName}-api-lambda`, {
@@ -108,7 +108,3 @@ const endpoint = new awsx.apigateway.API(`${baseName}-message-api`, {
 // Export the message endpoint as an Output to be used by others
 // This will allow us to execute the `npm run test` script to test our infrastructure.
 export const messageEndpoint = pulumi.interpolate`${endpoint.url}message`;
-
-const stackRef = new pulumi.StackReference("org/project-name/stack-name");
-
-stackRef.getOutput("messageEndpoint");

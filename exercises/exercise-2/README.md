@@ -31,23 +31,30 @@ Note, the use of `config.require("")`. This means Pulumi will throw an error, if
 ## Step 3:
 Finally we need to create a lambda function that is responsible for publishing the event stream to the SNS topic. 
 ```
-// Create in-line lambda function that will process the DynamoDB event streams
-// Magic functions can be replaced by traditional representations of lambda functions, if needed.
-const messageHandler = new aws.lambda.CallbackFunction(`${baseName}-message-handler`, {
-    callback: async (event) => {
+// Create lambda function that will process the DynamoDB event streams
+// We'll use a component resource to re-use our Role creation step.
+const snsLambaRole = new LambdaRole(`${baseName}-sns-lambda`, {
+    assumeService: "lambda.amazonaws.com",
+    policyArn: aws.iam.ManagedPolicies.AmazonSNSFullAccess
+});
 
-        const snsClient = new aws.sdk.SNS();
+// This will bundle up the 'src' directory into a zip and make it available for use with lambda
+const lambdaArchive = new pulumi.asset.AssetArchive({
+    ".": new pulumi.asset.FileArchive("./src")
+});
 
-        await snsClient.publish({
-            TopicArn: snsTopic.arn.get(),
-            Message: JSON.stringify(event)
-        }).promise();
+const dynamoStreamLambda = new aws.lambda.Function(`${baseName}-dynamo-stream-lambda`, {
+    runtime: aws.lambda.Runtime.NodeJS12dX,
+    handler: "dynamo-stream-lambda.handler",
+    code: lambdaArchive,
+    role: snsLambaRole.role.arn,
+    environment: {
+        variables: {
+            TOPIC_ARN: snsTopic.arn
+        }
     }
 });
 ```
-
-
-This code uses what is called "Magic Functions". More can be read here: https://www.pulumi.com/docs/guides/crosswalk/aws/lambda/#register-an-event-handler-using-a-magic-lambda-function.  
 
 execute a `pulumi up` command and watch as your new infrastructure is created.
 
@@ -56,7 +63,7 @@ In order to receive our email notification, we need to subscribe to our DynamoDB
 
 ```
 // Attach our lambda function to our DynamoDB table to process the new Items
-dynamoTable.onEvent(`${baseName}-message-handler`, messageHandler, {
+dynamoTable.onEvent(`${baseName}-stream-handler`, dynamoStreamLambda, {
     startingPosition: "LATEST"
 });
 ```
