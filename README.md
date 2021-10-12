@@ -16,3 +16,5 @@ This example shows how Pulumi can easily create an AWS Serverless application th
 5. execute `npm run test` to trigger a new notification
 
 Make sure to run `pulumi destroy` to clean up your resources when you're finished.
+
+## NOTE: A 'src' directory containing valid lambda function code is required for this solution to work.
