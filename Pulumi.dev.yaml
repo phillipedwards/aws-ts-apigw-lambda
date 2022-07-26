@@ -1,3 +1,0 @@
-config:
-  aws-ts-apigw-lambda:subscription-email: phillip@pulumi.com
-  aws:region: us-west-2

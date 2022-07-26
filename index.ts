@@ -8,6 +8,8 @@ import { LambdaRole } from "./lambda-role";
 const config = new pulumi.Config();
 const baseName = config.get("base-name") || "message";
 
+const vpcStack = new pulumi.StackReference("my-vpc-stack");
+const vpc = vpcStack.getOutputValue("vpc-id");
 
 // ------------ Step 1 --------- //
 // Build all infra that is required for the dynamo table
@@ -28,7 +30,7 @@ const dynamoTable = new aws.dynamodb.Table(`${baseName}-webhook-table`, {
 // ------------ Step 2 --------- //
 // Build all infra that is required to attach lambda to dynamo stream for SNS processing
 
-// Create the SNS Topic and Subscription to be used for the DynamoDB event stream
+// Create the SNS Topic and Subscription to be used for the DynamoDBpuluevent stream
 const snsTopic = new aws.sns.Topic(`${baseName}-topic`, {
     displayName: "message-topic",
 });
@@ -68,7 +70,7 @@ const dynamoStreamLambda = new aws.lambda.Function(`${baseName}-dynamo-stream-la
 
 // Attach our lambda function to our DynamoDB table to process the new Items
 dynamoTable.onEvent(`${baseName}-stream-handler`, dynamoStreamLambda, {
-    startingPosition: "LATEST"
+    startingPosition: "TRIM_HORIZON"
 });
 
 // ------------ Step 3 --------- //
